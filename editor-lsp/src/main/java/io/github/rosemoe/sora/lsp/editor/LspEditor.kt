@@ -537,6 +537,8 @@ class LspEditor(
             signatureHelpWindowWeakReference.clear()
             hoverWindowWeakReference.clear()
             codeActionWindowWeakReference.clear()
+            foldingController = null
+            foldingModel = null
             clearVersions {
                 it == this.uri
             }
