@@ -24,6 +24,7 @@
 
 package io.github.rosemoe.sora.lsp.editor
 
+import android.util.Log
 import androidx.annotation.WorkerThread
 import io.github.rosemoe.sora.annotations.Experimental
 import io.github.rosemoe.sora.event.ContentChangeEvent
@@ -32,6 +33,8 @@ import io.github.rosemoe.sora.event.ScrollEvent
 import io.github.rosemoe.sora.event.SelectionChangeEvent
 import io.github.rosemoe.sora.graphics.inlayHint.TextInlayHintRenderer
 import io.github.rosemoe.sora.lang.Language
+import io.github.rosemoe.sora.lang.folding.FoldingController
+import io.github.rosemoe.sora.lang.folding.FoldingModel
 import io.github.rosemoe.sora.lang.styling.inlayHint.InlayHintsContainer
 import io.github.rosemoe.sora.lsp.client.languageserver.serverdefinition.LanguageServerDefinition
 import io.github.rosemoe.sora.lsp.client.languageserver.wrapper.LanguageServerWrapper
@@ -102,6 +105,9 @@ class LspEditor(
     private var isClosed = false
 
     private var cachedInlayHints: List<org.eclipse.lsp4j.InlayHint>? = null
+
+    private var foldingController: FoldingController? = null
+    private var foldingModel: FoldingModel? = null
 
     private val unsubscribeFunctionRef = AtomicReference<Runnable?>()
 
@@ -300,6 +306,16 @@ class LspEditor(
             val capabilities = languageServerWrapper.getServerCapabilities()
                 ?: throw TimeoutException("Unable to connect language server")
 
+            if(capabilities.foldingRangeProvider != null) {
+                val foldingProvider = LspFoldingProvider(currentLanguage!!)
+                foldingModel = FoldingModel()
+                foldingController = FoldingController(foldingModel!!, foldingProvider)
+                val documentUri = uri.toString()
+                foldingController?.refresh(documentUri) {
+                    Log.d("LspEditor", "Folding regions loaded: ${foldingModel?.getRegions()?.size}")
+                }
+            } else Log.d("LspEditor", "Lsp server does not support code folding!")
+
             languageServerWrapper.connect(this@LspEditor)
 
             currentLanguage?.let { language ->
@@ -483,6 +499,8 @@ class LspEditor(
 
         editor.inlayHints = inlayHintsContainer
     }
+
+    fun getFoldingController(): FoldingController? = foldingController
 
     fun hitReTrigger(eventText: CharSequence): Boolean {
         for (trigger in signatureHelpReTriggers) {
