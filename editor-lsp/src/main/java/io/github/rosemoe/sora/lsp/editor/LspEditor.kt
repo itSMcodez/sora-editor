@@ -77,11 +77,9 @@ import org.eclipse.lsp4j.Range
 import org.eclipse.lsp4j.SignatureHelp
 import org.eclipse.lsp4j.TextDocumentSyncKind
 import org.eclipse.lsp4j.jsonrpc.messages.Either
-import java.lang.RuntimeException
 import java.lang.ref.WeakReference
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicReference
-import kotlin.reflect.KClass
 
 class LspEditor(
     val project: LspProject,
@@ -140,13 +138,14 @@ class LspEditor(
             currentEditor.setEditorLanguage(currentLanguage)
 
             if (isEnableSignatureHelp) {
-                signatureHelpWindowWeakReference = WeakReference(SignatureHelpWindow(currentEditor))
+                signatureHelpWindowWeakReference =
+                    WeakReference(SignatureHelpWindow(currentEditor, coroutineScope))
             }
             if (isEnableHover) {
-                hoverWindowWeakReference = WeakReference(HoverWindow(currentEditor))
+                hoverWindowWeakReference = WeakReference(HoverWindow(currentEditor, coroutineScope))
             }
             if (isEnableInlayHint) {
-                currentEditor.registerInlayHintRenderer(TextInlayHintRenderer)
+                currentEditor.registerInlayHintRenderer(TextInlayHintRenderer.DefaultInstance)
             }
 
             codeActionWindowWeakReference = WeakReference(CodeActionWindow(this, currentEditor))
@@ -225,16 +224,16 @@ class LspEditor(
     val isShowHover
         get() = hoverWindowWeakReference.get()?.isShowing ?: false
 
-
     val isShowCodeActions
         get() = codeActionWindowWeakReference.get()?.isShowing ?: false
 
     var isEnableHover = true
-        get() = hoverWindow?.isEnabled() ?: false
         set(value) {
             field = value
             if (value) {
-                editor?.let { hoverWindowWeakReference = WeakReference(HoverWindow(it)) }
+                editor?.let {
+                    hoverWindowWeakReference = WeakReference(HoverWindow(it, coroutineScope))
+                }
             } else {
                 hoverWindow?.setEnabled(false)
                 hoverWindowWeakReference.clear()
@@ -242,12 +241,16 @@ class LspEditor(
         }
 
     var isEnableSignatureHelp = true
-        get() = signatureHelpWindow?.isEnabled() ?: false
         set(value) {
             field = value
             if (value) {
                 editor?.let {
-                    signatureHelpWindowWeakReference = WeakReference(SignatureHelpWindow(it))
+                    signatureHelpWindowWeakReference = WeakReference(
+                        SignatureHelpWindow(
+                            it,
+                            coroutineScope
+                        )
+                    )
                 }
             } else {
                 signatureHelpWindow?.setEnabled(false)
@@ -261,7 +264,7 @@ class LspEditor(
             field = value
             val editor = editor ?: return
             if (value) {
-                editor.registerInlayHintRenderer(TextInlayHintRenderer)
+                editor.registerInlayHintRenderer(TextInlayHintRenderer.DefaultInstance)
                 coroutineScope.launch {
                     this@LspEditor.requestInlayHint(CharPosition(0, 0))
                 }
