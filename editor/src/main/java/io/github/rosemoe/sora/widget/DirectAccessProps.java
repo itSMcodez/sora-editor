@@ -522,4 +522,28 @@ public class DirectAccessProps implements Serializable {
     @InvalidateRequired
     public boolean showBidiDirectionIndicator = true;
 
+    /**
+     * Show divider line
+     *
+     * @see #stickyLineIndicator
+     */
+    public final static int STICKY_LINE_INDICATOR_LINE = 1;
+
+    /**
+     * Show shadow
+     *
+     * @see #stickyLineIndicator
+     */
+    public final static int STICKY_LINE_INDICATOR_SHADOW = 1;
+
+
+    /**
+     * How to show the sticky line divider
+     *
+     * @see #STICKY_LINE_INDICATOR_LINE
+     * @see #STICKY_LINE_INDICATOR_SHADOW
+     */
+    @InvalidateRequired
+    public int stickyLineIndicator = STICKY_LINE_INDICATOR_LINE | STICKY_LINE_INDICATOR_SHADOW;
+
 }
