@@ -402,7 +402,7 @@ public class EditorRenderer {
         var cache = editor.getRenderContext().getCache().queryMeasureCache(line);
         var widths = cache != null && cache.getUpdateTimestamp() >= displayTimestamp ? cache.getWidths() : null;
         widths = widths != null && widths.length > lineBuf.length() ? widths : null;
-        tr.set(lineBuf, 0, columnCount, spans.getSpansOnLine(line), lineInlays, content.getLineDirections(line), paintGeneral, widths, createTextRowParams());
+        tr.set(lineBuf, 0, columnCount, spans.getSpansOnLine(line), lineInlays, getLineDirections(line), paintGeneral, widths, createTextRowParams());
         if (canvas != null) {
             canvas.save();
             canvas.translate(offsetX, editor.getRowTopOfText(0) + offsetY);
@@ -731,14 +731,20 @@ public class EditorRenderer {
                     colorId = EditorColorScheme.CURRENT_LINE;
                 }
                 drawColor(canvas, editor.getColorScheme().getColor(colorId), tmpRect);
-                try {
-                    if (spanReader != null) {
-                        spanReader.moveToLine(block.startLine);
-                    }
-                    drawSingleTextLine(canvas, block.startLine, offset, offsetLine * editor.getRowHeight(), spanReader, true);
-                } finally {
-                    if (spanReader != null) {
-                        spanReader.moveToLine(-1);
+                if (canvas.isHardwareAccelerated() && editor.isHardwareAcceleratedDrawAllowed()
+                        && editor.getRenderContext().getRenderNodeHolder() != null && !editor.getEventHandler().isScaling &&
+                        (editor.getProps().cacheRenderNodeForLongLines || getLine(block.startLine).length() < 128)) {
+                    editor.getRenderContext().getRenderNodeHolder().drawLineHardwareAccelerated(canvas, block.startLine, offset, offsetLine * editor.getRowHeight());
+                } else {
+                    try {
+                        if (spanReader != null) {
+                            spanReader.moveToLine(block.startLine);
+                        }
+                        drawSingleTextLine(canvas, block.startLine, offset, offsetLine * editor.getRowHeight(), spanReader, true);
+                    } finally {
+                        if (spanReader != null) {
+                            spanReader.moveToLine(-1);
+                        }
                     }
                 }
                 previousLine = block.startLine;
@@ -1004,9 +1010,12 @@ public class EditorRenderer {
         int size = codeBlocks.size();
         List<CodeBlock> candidates = new ArrayList<>();
         var limit = editor.getProps().stickyScrollIterationLimit;
+        var maxLine = content.getLineCount();
         for (int i = 0; i < size && i < limit; i++) {
             var block = codeBlocks.get(i);
-            if (block == null) {
+            if (block == null || block.startLine > block.endLine ||
+                    block.startLine > maxLine || block.endLine > maxLine ||
+                    block.startLine < 0) {
                 continue;
             }
             if (block.startLine > startLine) {
@@ -1715,7 +1724,7 @@ public class EditorRenderer {
      * Draw small characters as graph
      */
     protected void drawMiniGraph(Canvas canvas, float offset, int row, Drawable graph) {
-        float baseline = row == -1 ? (editor.getRowBottom(0) - metricsGraph.descent) : (editor.getRowBottom(row) - editor.getOffsetY() - metricsGraph.descent);
+        float graphBottom = row == -1 ? (editor.getRowBottomOfText(0)) : (editor.getRowBottomOfText(row) - editor.getOffsetY());
         float height = editor.getRowHeightOfText() * editor.getProps().miniMarkerSizeFactor;
         if (height <= 0 || graph == null) {
             return;
@@ -1726,7 +1735,7 @@ public class EditorRenderer {
         }
         float width = height * ((float) w / h);
         graph.setColorFilter(editor.getColorScheme().getColor(EditorColorScheme.NON_PRINTABLE_CHAR), PorterDuff.Mode.SRC_ATOP);
-        graph.setBounds((int) offset, (int) (baseline - height), (int) (offset + width), (int) baseline);
+        graph.setBounds((int) offset, (int) (graphBottom - height), (int) (offset + width), (int) graphBottom);
         graph.draw(canvas);
     }
 
@@ -2194,7 +2203,7 @@ public class EditorRenderer {
     protected void patchTextRegionWithColor(Canvas canvas, float textOffset, int start, int end, int color, int backgroundColor, int underlineColor) {
         paintGeneral.setColor(color);
         paintOther.setStrokeWidth(editor.getRowHeightOfText() * RenderingConstants.MATCHING_DELIMITERS_UNDERLINE_WIDTH_FACTOR);
-        
+
         var useBoldStyle = editor.getProps().boldMatchingDelimiters;
         paintGeneral.setStyle(useBoldStyle ? Paint.Style.FILL_AND_STROKE : Paint.Style.FILL);
         paintGeneral.setFakeBoldText(useBoldStyle);

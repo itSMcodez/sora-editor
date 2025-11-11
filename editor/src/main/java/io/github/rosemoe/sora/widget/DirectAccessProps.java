@@ -305,7 +305,7 @@ public class DirectAccessProps implements Serializable {
      */
     @InvalidateRequired
     @FloatRange(from = 0.0f, to = 1.0f)
-    public final float miniMarkerSizeFactor = 0.45f;
+    public final float miniMarkerSizeFactor = 0.5f;
 
 
     /**
@@ -545,5 +545,11 @@ public class DirectAccessProps implements Serializable {
      */
     @InvalidateRequired
     public int stickyLineIndicator = STICKY_LINE_INDICATOR_LINE | STICKY_LINE_INDICATOR_SHADOW;
+
+    /**
+     * The completion window will automatically move selection to first item if physical
+     * keyboard is connected when it is going to show up.
+     */
+    public boolean moveSelectionToFirstForKeyboard = true;
 
 }
